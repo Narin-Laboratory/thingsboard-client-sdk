@@ -362,7 +362,7 @@ class ThingsBoardSized {
 #if THINGSBOARD_ENABLE_DEBUG
             Logger::printfln(SEND_MESSAGE, topic, SEND_SERIALIZED);
 #endif // THINGSBOARD_ENABLE_DEBUG
-            result = Serialize_Json(topic, source, json_size - 1);
+            result = Serialize_Json(topic, source);
         }
         else
 #endif // THINGSBOARD_ENABLE_STREAM_UTILS
