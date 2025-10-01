@@ -29,13 +29,13 @@ uint8_t constexpr DEFAULT_MAX_RESPONSE_SIZE = 0U;
 
 // Log messages.
 #if !THINGSBOARD_ENABLE_DYNAMIC
-char constexpr TOO_MANY_JSON_FIELDS[] = "Attempt to enter to many JSON fields into StaticJsonDocument (%u), increase (%s) (%u) accordingly";
+char constexpr TOO_MANY_JSON_FIELDS[] = "JsonDocument capacity is too small, increase (%s) accordingly";
 #endif // !THINGSBOARD_ENABLE_DYNAMIC
 char constexpr UNABLE_TO_SERIALIZE[] = "Unable to serialize key-value json";
 char constexpr CONNECT_FAILED[] = "Connecting to server failed";
 char constexpr UNABLE_TO_SERIALIZE_JSON[] = "Unable to serialize json data";
 char constexpr UNABLE_TO_ALLOCATE_JSON[] = "Allocating memory for the JsonDocument failed, passed JsonDocument is NULL";
-char constexpr JSON_SIZE_TO_SMALL[] = "JsonDocument too small to store all values. Ensure every key value pair gets JSON_OBJECT_SIZE(1) capacity + size required by value / key that is inserted";
+char constexpr JSON_SIZE_TO_SMALL[] = "JsonDocument is too small to store all values. Increase its capacity";
 
 
 #if THINGSBOARD_ENABLE_PSRAM
@@ -49,15 +49,11 @@ struct SpiRamAllocator {
   void deallocate(void* pointer) {
     heap_caps_free(pointer);
   }
-
-  void* reallocate(void* ptr, size_t new_size) {
-    return heap_caps_realloc(ptr, new_size, MALLOC_CAP_SPIRAM);
-  }
 };
 
-using TBJsonDocument = BasicJsonDocument<SpiRamAllocator>;
+using TBJsonDocument = ArduinoJson::JsonDocument;
 #elif THINGSBOARD_ENABLE_DYNAMIC
-using TBJsonDocument = DynamicJsonDocument;
+using TBJsonDocument = ArduinoJson::JsonDocument;
 #endif
 
 #endif // Constants_h
