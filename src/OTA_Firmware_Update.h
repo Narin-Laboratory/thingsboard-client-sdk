@@ -168,7 +168,7 @@ class OTA_Firmware_Update : public IAPI_Implementation {
         m_ota.Process_Firmware_Packet(chunk, payload, length);
     }
 
-    void Process_Json_Response(char const * topic, JsonDocument const & data) override {
+    void Process_Json_Response(char const * topic, JsonVariantConst data) override {
         // Nothing to do
     }
 
@@ -215,7 +215,7 @@ class OTA_Firmware_Update : public IAPI_Implementation {
     /// @param current_fw_version Current device firmware version
     /// @return Whether sending the current device firmware information was successful or not
     bool Firmware_Send_Info(char const * current_fw_title, char const * current_fw_version) {
-        StaticJsonDocument<JSON_OBJECT_SIZE(2U)> current_firmware_info;
+        JsonDocument current_firmware_info;
         current_firmware_info[CURR_FW_TITLE_KEY] = current_fw_title;
         current_firmware_info[CURR_FW_VER_KEY] = current_fw_version;
         return m_send_json_callback.Call_Callback(TELEMETRY_TOPIC, current_firmware_info);
@@ -228,7 +228,7 @@ class OTA_Firmware_Update : public IAPI_Implementation {
     /// simply do not enter a value and the default value will be used which overwrites the firmware error messages, default = ""
     /// @return Whether sending the current firmware download state was successful or not
     bool Firmware_Send_State(char const * current_fw_state, char const * fw_error = "") {
-        StaticJsonDocument<JSON_OBJECT_SIZE(2U)> current_firmware_state;
+        JsonDocument current_firmware_state;
         current_firmware_state[FW_ERROR_KEY] = fw_error;
         current_firmware_state[FW_STATE_KEY] = current_fw_state;
         return m_send_json_callback.Call_Callback(TELEMETRY_TOPIC, current_firmware_state);
@@ -308,7 +308,7 @@ class OTA_Firmware_Update : public IAPI_Implementation {
     /// @brief Callback that will be called upon firmware shared attribute arrival
     /// @param data Json data containing key-value pairs for the needed firmware information,
     /// to ensure we have a firmware assigned and can start the update over MQTT
-    void Firmware_Shared_Attribute_Received(JsonObjectConst const & data) {
+    void Firmware_Shared_Attribute_Received(JsonVariantConst data) {
         // Check if firmware is available for our device
         if (!data.containsKey(FW_VER_KEY) || !data.containsKey(FW_TITLE_KEY) || !data.containsKey(FW_CHKS_KEY) || !data.containsKey(FW_CHKS_ALGO_KEY) || !data.containsKey(FW_SIZE_KEY)) {
             Logger::printfln(NO_FW);
@@ -402,7 +402,7 @@ class OTA_Firmware_Update : public IAPI_Implementation {
     }
 
 #if !THINGSBOARD_ENABLE_STL
-    static void onStaticFirmwareReceived(JsonDocument const & data) {
+    static void onStaticFirmwareReceived(JsonVariantConst data) {
         if (m_subscribedInstance == nullptr) {
             return;
         }
@@ -460,7 +460,8 @@ class OTA_Firmware_Update : public IAPI_Implementation {
 };
 
 #if !THINGSBOARD_ENABLE_STL
-OTA_Firmware_Update *OTA_Firmware_Update::m_subscribedInstance = nullptr;
+template <typename Logger>
+OTA_Firmware_Update<Logger> *OTA_Firmware_Update<Logger>::m_subscribedInstance = nullptr;
 #endif
 
 #endif // OTA_Firmware_Update_h

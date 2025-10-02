@@ -16,6 +16,7 @@ char constexpr CLIENT_REQUEST_KEYS[] = "clientKeys";
 char constexpr CLIENT_RESPONSE_KEY[] = "client";
 // Shared attribute request keys.
 char constexpr SHARED_REQUEST_KEY[] = "sharedKeys";
+// char constexpr SHARED_RESPONSE_KEY[] = "shared";
 // Log messages.
 #if THINGSBOARD_ENABLE_DEBUG
 char constexpr NO_KEYS_TO_REQUEST[] = "No keys to request were given";
@@ -43,7 +44,7 @@ template<size_t MaxSubscriptions = DEFAULT_SUBSCRIPTION_AMOUNT, size_t MaxAttrib
 class Attribute_Request : public IAPI_Implementation {
 #if THINGSBOARD_ENABLE_DYNAMIC
     using Callback_Value = Attribute_Request_Callback;
-    using Callback_Container = Container<Callback_Watchdog_h>;
+    using Callback_Container = Container<Callback_Value>;
 #else
     using Callback_Value = Attribute_Request_Callback<MaxAttributes>;
     using Callback_Container = Container<Callback_Value, MaxSubscriptions>;
@@ -91,7 +92,7 @@ class Attribute_Request : public IAPI_Implementation {
 
     void Process_Json_Response(char const * topic, JsonDocument const & data) override {
         auto const request_id = Helper::Split_Topic_Into_Request_ID(topic, strlen(ATTRIBUTE_RESPONSE_TOPIC));
-        JsonObjectConst object = data.template as<JsonObjectConst>();
+        JsonObject object = data.as<JsonObject>();
 
         Timeoutable_Request * request_callback = nullptr;
 #if THINGSBOARD_ENABLE_STL
@@ -201,8 +202,8 @@ class Attribute_Request : public IAPI_Implementation {
 
         // String are const char* and therefore stored as a pointer --> zero copy, meaning the size for the strings is 0 bytes,
         // Data structure size depends on the amount of key value pairs passed + the default clientKeys or sharedKeys
-        // See https://arduinojson.org/v6/assistant/ for more information on the needed size for the JsonDocument
-        StaticJsonDocument<JSON_OBJECT_SIZE(1)> request_buffer;
+        // See https://arduinojson.org/v7/assistant/ for more information on the needed size for the JsonDocument
+        JsonDocument request_buffer;
 
         // Calculate the size required for the char buffer containing all the attributes seperated by a comma,
         // before initalizing it so it is possible to allocate it on the stack

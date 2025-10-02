@@ -116,9 +116,9 @@ WiFiClient espClient;
 // Initalize the Mqtt client instance
 Arduino_MQTT_Client mqttClient(espClient);
 // Initialize used apis
-Provision<> prov;
+Provision<> IAPIProv;
 const std::array<IAPI_Implementation*, 1U> apis = {
-    &prov
+    &IAPIProv
 };
 // Initialize ThingsBoard instance with the maximum needed buffer size
 ThingsBoard tb(mqttClient, MAX_MESSAGE_RECEIVE_SIZE, MAX_MESSAGE_SEND_SIZE, DEFAULT_MAX_STACK_SIZE, apis);
@@ -256,7 +256,7 @@ void loop() {
 #endif
 
     const Provision_Callback provisionCallback(Access_Token(), &processProvisionResponse, PROVISION_DEVICE_KEY, PROVISION_DEVICE_SECRET, device_name.c_str(), REQUEST_TIMEOUT_MICROSECONDS, &requestTimedOut);
-    provisionRequestSent = prov.Provision_Request(provisionCallback);
+    provisionRequestSent = IAPIProv.Provision_Request(provisionCallback);
   }
   else if (provisionResponseProcessed) {
     if (!tb.connected()) {

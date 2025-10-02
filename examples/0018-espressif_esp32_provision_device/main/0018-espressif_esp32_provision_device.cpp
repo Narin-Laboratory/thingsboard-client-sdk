@@ -109,9 +109,9 @@ constexpr uint64_t REQUEST_TIMEOUT_MICROSECONDS = 5000U * 1000U;
 // Initalize the Mqtt client instance
 Espressif_MQTT_Client<> mqttClient;
 // Initialize used apis
-Provision<> prov;
+Provision<> IAPIProv;
 const std::array<IAPI_Implementation*, 1U> apis = {
-    &prov
+    &IAPIProv
 };
 // Initialize ThingsBoard instance with the maximum needed buffer size
 ThingsBoard tb(mqttClient, MAX_MESSAGE_RECEIVE_SIZE, MAX_MESSAGE_SEND_SIZE, DEFAULT_MAX_STACK_SIZE, apis);
@@ -243,7 +243,7 @@ void provision_device(void *pvParameters) {
 
     // Prepare and send the provision request
     const Provision_Callback provisionCallback(Access_Token(), &processProvisionResponse, PROVISION_DEVICE_KEY, PROVISION_DEVICE_SECRET, device_name.c_str(), REQUEST_TIMEOUT_MICROSECONDS, &requestTimedOut);
-    provisionRequestSent = prov.Provision_Request(provisionCallback);
+    provisionRequestSent = IAPIProv.Provision_Request(provisionCallback);
 
     // Wait for the provisioning response to be processed
     while (!provisionResponseProcessed) {
