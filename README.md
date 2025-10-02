@@ -12,7 +12,7 @@
 [![ESP8266 actions status](https://github.com/thingsboard/thingsboard-client-sdk/actions/workflows/esp8266-compile.yml/badge.svg)](https://github.com/thingsboard/thingsboard-client-sdk/actions/workflows/esp8266-compile.yml)
 ![GitHub stars](https://img.shields.io/github/stars/thingsboard/thingsboard-client-sdk?style=social)
 
-This library provides access to the ThingsBoard platform over the `MQTT` or `HTTP(S)` protocols.
+This library provides access to the ThingsBoard platform over the `MQTT` protocol.
 
 ## Examples
 
@@ -21,7 +21,7 @@ Please review the complete guide for `ESP32` Pico Kit `GPIO` control and `DHT22`
 
 ## Supported Frameworks
 
-`ThingsBoardArduinoSDK` does not directly depend on any specific `MQTT Client` or `HTTP Client` implementation, instead any implementation of the `IMQTT_Client` or `IHTTP Client` can be used. Because there are no further dependencies on `Arduino`, besides the client that communicates it allows us to use this library with `Arduino`, when using the `Arduino_MQTT_Client` or with `Espressif IDF` when using the `Espressif_MQTT_Client`.
+`ThingsBoard` does not directly depend on any specific `MQTT Client` implementation, instead any implementation of the `IMQTT_Client` can be used. Because there are no further dependencies on `Arduino`, besides the client that communicates it allows us to use this library with `Arduino`, when using the `Arduino_MQTT_Client` or with `Espressif IDF` when using the `Espressif_MQTT_Client`.
 
 Example usage for `Espressif` can be found in the `examples/0014-espressif_esp32_send_data` folder, all other code portions can be implemented the same way only initialization of the needed dependencies is slightly different. Meaning internal call to `ThingsBoard` works the same on both `Espressif` and `Arduino`.
 
@@ -77,7 +77,6 @@ Following dependencies are installed automatically or must be installed, too:
 **Installed automatically:**
  - [ArduinoJSON](https://github.com/bblanchon/ArduinoJson) — needed for dealing with the `JSON` payload that is sent to and received by `ThingsBoard`. _Please Note:_ you must use `v7.x.x` of this library as `v6.x.x` is not supported anymore.
  - [MQTT PubSub Client](https://github.com/thingsboard/pubsubclient) — for interacting with `MQTT`, when using the `Arduino_MQTT_Client` instance as an argument to `ThingsBoard`. Only installed if this library is used over `Arduino IDE` or `PlatformIO` with the Arduino framework.
- - [Arduino Http Client](https://github.com/arduino-libraries/ArduinoHttpClient) — for interacting with `HTTP/S` when using the `Arduino_HTTP_Client` instance as an argument to `ThingsBoardHttp`. Only installed if this library is used over `Arduino IDE` or `PlatformIO` with the Arduino framework.
 
 **Needs to be installed manually:**
  - [MbedTLS Library](https://github.com/Seeed-Studio/Seeed_Arduino_mbedtls) — needed to create hashes for the OTA update for non `Espressif` boards.
@@ -93,22 +92,15 @@ Example implementations for all base features, mentioned above, can be found in 
 
 All possible features are implemented over `MQTT` over a specific `IAPI_Implementation` instance:
 
- - [Telemetry data upload](https://thingsboard.io/docs/reference/mqtt-api/#telemetry-upload-api) / `ThingsBoardSized`
- - [Device attribute publish](https://thingsboard.io/docs/reference/mqtt-api/#publish-attribute-update-to-the-server) / `ThingsBoardSized`
+ - [Telemetry data upload](https://thingsboard.io/docs/reference/mqtt-api/#telemetry-upload-api) / `ThingsBoard`
+ - [Device attribute publish](https://thingsboard.io/docs/reference/mqtt-api/#publish-attribute-update-to-the-server) / `ThingsBoard`
  - [Server-side RPC](https://thingsboard.io/docs/reference/mqtt-api/#server-side-rpc) / `Server_Side_RPC`
  - [Client-side RPC](https://thingsboard.io/docs/reference/mqtt-api/#client-side-rpc) / `Client_Side_RPC`
- - [Request attribute values](https://thingsboard.io/docs/reference/mqtt-api/#request-attribute-values-from-the-server) / `Attribute_Request_Callback`
+ - [Request attribute values](https://thingsboard.io/docs/reference/mqtt-api/#request-attribute-values-from-the-server) / `Attribute_Request`
  - [Attribute update subscription](https://thingsboard.io/docs/reference/mqtt-api/#subscribe-to-attribute-updates-from-the-server) / `Shared_Attribute_Update`
  - [Device provisioning](https://thingsboard.io/docs/reference/mqtt-api/#device-provisioning) / `Provision`
- - [Device claiming](https://thingsboard.io/docs/reference/mqtt-api/#claiming-devices) / `ThingsBoardSized`
+ - [Device claiming](https://thingsboard.io/docs/reference/mqtt-api/#claiming-devices) / `ThingsBoard`
  - [Firmware OTA update](https://thingsboard.io/docs/reference/mqtt-api/#firmware-api) / `OTA_Firmware_Update`
-
-### Over `HTTP(S)`:
-
-The remaining features have to be implemented by hand with the `sendGetRequest` or `sendPostRequest` method. See the [ThingsBoard Documentation](https://thingsboard.io/docs/reference/http-api) on how these features could be implemented. This is not done directly in the library, because most features require constant polling, whether an event occurred or not, this would cause massive overhead if it is done for all possible features and therefore not recommended.
-
- - [Telemetry data upload](https://thingsboard.io/docs/reference/http-api/#telemetry-upload-api)
- - [Device attribute publish](https://thingsboard.io/docs/reference/http-api/#publish-attribute-update-to-the-server)
 
 ## Troubleshooting
 
@@ -127,13 +119,13 @@ If the device is causing problems that are not already described in more detail 
 
 ### Not enough space for JSON serialization
 
-The buffer size for the serialized JSON is fixed to 64 bytes. The SDK will not send data if the size of it is bigger than the configured internal buffer size. Respective logs in the `"Serial Monitor"` window will indicate the condition:
+The buffer size for the underlying MQTT client might be too small to send or receive data. If that is the case the SDK will not send data if the size of it is bigger than the configured internal buffer size. Respective logs in the `"Serial Monitor"` window will indicate the condition:
 
 ```
-[TB] Send buffer size (64) to small for the given payloads size (83), increase with setBufferSize accordingly or install the StreamUtils library
+[TB] Send buffer size (256) to small for the given payloads size (342), increase with Set_Buffer_Size accordingly or install the StreamUtils library
 ```
 
-If that's the case, the buffer size for serialization should be increased. To do so, `Set_Buffer_Size()` method can be used or the `send_buffer_size` passed to the constructor can be increased as illustrated below:
+If that's the case, the buffer size for serialization should be increased. To do so, `Set_Buffer_Size()` method can be used on the `ThingsBoard` instance, which will then forward that call to the underlying client implementation.
 
 ```cpp
 // Initialize underlying client, used to establish a connection
@@ -142,15 +134,12 @@ WiFiClient espClient;
 // Initalize the Mqtt client instance
 Arduino_MQTT_Client mqttClient(espClient);
 
-// The SDK setup with default 64 bytes for send and receive buffer
+// The SDK setup
 ThingsBoard tb(mqttClient);
-
-// The SDK setup with 128 bytes for send and receive buffer
-ThingsBoard tb(mqttClient, 128, 128);
 
 void setup() {
   // Increase internal buffer size after inital creation.
-  tb.Set_Buffer_Size(256, 256);
+  tb.Set_Buffer_Size(512, 512);
 }
 ```
 
@@ -162,7 +151,7 @@ For that the only thing that needs to be done is to install the required `Stream
 
 ### Custom API Implementation Instance
 
-The `ThingsBoardSized` class instance only supports a minimal subset of the actual API, see the [Supported ThingsBoard Features](https://github.com/thingsboard/thingsboard-client-sdk?tab=readme-ov-file#supported-thingsboard-features) section. But with the usage of the `IAPI_Implementation` base class, it is possible to write an own implementation that implements an additional API implementation or changes the behavior for an already existing API implementation.
+The `ThingsBoard` class instance only supports a minimal subset of the actual API, see the [Supported ThingsBoard Features](https://github.com/thingsboard/thingsboard-client-sdk?tab=readme-ov-file#supported-thingsboard-features) section. But with the usage of the `IAPI_Implementation` base class, it is possible to write an own implementation that implements an additional API implementation or changes the behavior for an already existing API implementation.
 
 For that a `class` needs to inherit the `API_Implemenatation` class and `override` the needed methods shown below:
 
@@ -178,7 +167,7 @@ class Custom_API_Implementation : public IAPI_Implementation {
   public:
     ~Custom_API_Implementation() override = default;
 
-    API_Process_Type Get_Process_Type() override {
+    API_Process_Type Get_Process_Type() const override {
         return API_Process_Type::JSON;
     }
 
@@ -212,7 +201,7 @@ class Custom_API_Implementation : public IAPI_Implementation {
         // Nothing to do
     }
 
-    void Set_Client_Callbacks(Callback<void, IAPI_Implementation &>::function subscribe_api_callback, Callback<bool, char const * const, JsonDocument const &>::function send_json_callback, Callback<bool, char const * const, char const * const>::function send_json_string_callback, Callback<bool, char const * const>::function subscribe_topic_callback, Callback<bool, char const * const>::function unsubscribe_topic_callback, Callback<uint16_t>::function get_receive_size_callback, Callback<uint16_t>::function get_send_size_callback, Callback<bool, uint16_t, uint16_t>::function set_buffer_size_callback, Callback<size_t *>::function get_request_id_callback) override {
+    void Set_Client_Callbacks(Callback<void, IAPI_Implementation &>::function subscribe_api_callback, Callback<bool, char const * const, JsonDocument const &, Deserialization_Options>::function send_json_callback, Callback<bool, char const * const, char const * const>::function send_json_string_callback, Callback<bool, char const * const>::function subscribe_topic_callback, Callback<bool, char const * const>::function unsubscribe_topic_callback, Callback<uint16_t>::function get_receive_size_callback, Callback<uint16_t>::function get_send_size_callback, Callback<bool, uint16_t, uint16_t>::function set_buffer_size_callback, Callback<size_t *>::function get_request_id_callback) override {
         // Nothing to do
     }
 };
@@ -220,7 +209,7 @@ class Custom_API_Implementation : public IAPI_Implementation {
 #endif // Custom_API_Implementation_h
 ```
 
-Once that has been done it can simply be passed to the `ThingsBoard` instance, either using the constructor or using the `Subscribe_IAPI_Implementation` method.
+Once that has been done it can simply be passed to the `ThingsBoard` instance constructor.
 
 ```cpp
 // Initialize underlying client, used to establish a connection
@@ -232,11 +221,8 @@ Arduino_MQTT_Client mqttClient(espClient);
 // Initialize used apis with Custom API
 Custom_API_Implementation custom_api;
 
-// The SDK setup with default buffer sizes
-ThingsBoard tb(mqttClient);
-
-// Subscribe the custom API implementation
-tb.Subscribe_API_Implementation(custom_api);
+// The SDK setup with the custom API implementation
+ThingsBoard tb(mqttClient, &custom_api);
 ```
 
 ### Custom Updater Instance
@@ -288,76 +274,6 @@ Custom_Updater updater;
 const OTA_Update_Callback callback(CURRENT_FIRMWARE_TITLE, CURRENT_FIRMWARE_VERSION, &updater, &finished_callback, &progress_callback, &update_starting_callback, FIRMWARE_FAILURE_RETRIES, FIRMWARE_PACKET_SIZE);
 ```
 
-### Custom HTTP Instance
-
-When using the `ThingsBoardHttp` class instance, the protocol used to send the data to the HTTP broker is not hard coded,
-but instead the `ThingsBoardHttp` class expects the argument to a `IHTTP_Client` implementation.
-
-Thanks to it being an interface it allows an arbitrary implementation,
-meaning the underlying HTTP client can be whatever the user decides, so it can for example be used to support platforms using `Arduino` or even `Espressif IDF`.
-
-Currently, implemented in the library itself is the `Arduino_HTTP_Client`, which is simply a wrapper around the [`ArduinoHttpClient`](https://github.com/arduino-libraries/ArduinoHttpClient), see [dependencies](https://github.com/arduino-libraries/ArduinoHttpClient?tab=readme-ov-file#dependencies) for whether the board you are using is supported or not.
-
-If another device or feature wants to be supported, a custom interface implementation needs to be created.
-For that a `class` needs to inherit the `IHTTP_Client` interface and `override` the needed methods shown below:
-
-```cpp
-#include <IHTTP_Client.h>
-
-class Custom_HTTP_Client : public IHTTP_Client {
-  public:
-    ~Custom_HTTP_Client() override = default;
-
-    void set_keep_alive(bool keep_alive) override {
-        // Nothing to do
-    }
-
-    int connect(char const * host, uint16_t port) override {
-        return 0;
-    }
-
-    void stop() override {
-        // Nothing to do
-    }
-
-    int post(char const * url_path, char const * content_type, char const * request_body) override {
-        return 0;
-    }
-
-    int get_response_status_code() override {
-        return 200;
-    }
-
-    int get(char const * url_path) override {
-        return 0;
-    }
-
-#if THINGSBOARD_ENABLE_STL
-    std::string get_response_body() override {
-        return std::string();
-    }
-#else
-    String get_response_body() override {
-        return String();
-    }
-
-#endif // THINGSBOARD_ENABLE_STL
-};
-```
-
-Once that has been done it can simply be passed instead of the `Arduino_HTTP_Client` instance.
-
-```cpp
-// Initialize underlying client, used to establish a connection
-WiFiClient espClient;
-
-// Initalize the Http client instance
-Custom_HTTP_Client httpClient(espClient, THINGSBOARD_SERVER, THINGSBOARD_PORT);
-
-// The SDK setup with a custom http client
-ThingsBoardHttp tb(httpClient, TOKEN, THINGSBOARD_SERVER, THINGSBOARD_PORT);
-```
-
 ### Custom MQTT Instance
 
 When using the `ThingsBoard` class instance, the protocol used to send the data to the MQTT broker is not hard coded,
@@ -386,7 +302,7 @@ class Custom_MQTT_Client : public IMQTT_Client {
         // Nothing to do
     }
 
-    bool set_buffer_size(uint16_t buffer_size) override {
+    bool set_buffer_size(uint16_t receive_buffer_size, uint16_t send_buffer_size) override {
         return true;
     }
 
@@ -438,7 +354,7 @@ class Custom_MQTT_Client : public IMQTT_Client {
         return MQTT_Connection_Error::NONE;
     }
 
-    void subscribe_connection_state_changed_callback(Callback<void, MQTT_Connection_State, MQTT_Connection_Error>::function callback) override;
+    void subscribe_connection_state_changed_callback(Callback<void, MQTT_Connection_State, MQTT_Connection_Error>::function callback) override {
         // Nothing to do
     }
 
@@ -471,54 +387,11 @@ class Custom_MQTT_Client : public IMQTT_Client {
 Once that has been done it can simply be passed instead of the `Arduino_MQTT_Client` or the `Espressif_MQTT_Client` instance.
 
 ```cpp
-// Initialize underlying client, used to establish a connection
-WiFiClient espClient;
-
 // Initalize the Mqtt client instance
-Custom_MQTT_Client mqttClient(espClient);
+Custom_MQTT_Client mqttClient;
 
-// The SDK setup with default buffer sizes
+// The SDK setup
 ThingsBoard tb(mqttClient);
-
-// The SDK setup with 128 bytes for JSON payload
-ThingsBoard tb(mqttClient, 128, 128);
-```
-
-### Custom Logger Instance
-
-When using the `ThingsBoard` class instance, the class used to print internal warning messages is not hard coded,
-but instead the `ThingsBoard` class expects the template argument to a `Logger` implementation. See the [Enabling internal debug messages](https://github.com/thingsboard/thingsboard-client-sdk?tab=readme-ov-file#enabling-internal-debug-messages) section if the logger should also receive debug messages.
-
-Thanks to it being a template parameter it allows an arbitrary implementation,
-meaning the underlying Logger client can be whatever the user decides, so it can for example be used to print the messages onto a serial card instead of the serial console.
-
-Currently, implemented in the library itself is the `DefaultLogger`, which is simply a wrapper around a `printf` call. If the functionality wants to be extended, a custom implementation needs to be created.
-For that a `class` needs to fulfill the contract and implement the needed methods shown below:
-
-```cpp
-class CustomLogger {
-  public:
-    template<typename ...Args>
-    static int printfln(char const * format, Args const &... args) {
-        return 0;
-    }
-};
-```
-
-Once that has been done it can simply be passed as the last template parameter.
-
-```cpp
-// Initialize underlying client, used to establish a connection
-WiFiClient espClient;
-
-// Initalize the Mqtt client instance
-Arduino_MQTT_Client mqttClient(espClient);
-
-// The SDK setup with default buffer sizes and custom logger
-ThingsBoardSized<CustomLogger> tb(mqttClient);
-
-// The SDK setup with 128 bytes for JSON payload and custom logger
-ThingsBoardSized<CustomLogger> tb(mqttClient, 128, 128);
 ```
 
 ## Have a question or proposal?

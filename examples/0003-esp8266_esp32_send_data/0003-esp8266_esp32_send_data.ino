@@ -7,38 +7,15 @@
 #endif // ESP32
 #endif // ESP8266
 
+#include <Arduino_MQTT_Client.h>
+#include <ThingsBoard.h>
 
-// Sending data can either be done over MQTT and the PubSubClient
-// or HTTPS and the HTTPClient, when using the ESP32 or ESP8266
-#define USING_HTTPS true
 
 // Whether the given script is using encryption or not,
 // generally recommended as it increases security (communication with the server is not in clear text anymore),
 // it does come with an overhead tough as having an encrypted session requires a lot of memory,
 // which might not be avaialable on lower end devices.
 #define ENCRYPTED false
-
-// Enables sending messages that are bigger than the predefined message size,
-// where the message will be sent byte by byte as a fallback instead.
-// Requires an additional library, see https://github.com/bblanchon/ArduinoStreamUtils for more information.
-// Simply install that library and the feature will be enabled automatically.
-
-// Enables the ThingsBoard class to be fully dynamic instead of requiring template arguments to statically allocate memory.
-// If enabled the program might be slightly slower and all the memory will be placed onto the heap instead of the stack.
-#define THINGSBOARD_ENABLE_DYNAMIC 1
-
-// If the THINGSBOARD_ENABLE_DYNAMIC 1 setting causes this error log message to appear [TB] Unable to de-serialize received json data with error (DeserializationError::NoMemory).
-// Simply add this configuration line as well.
-//#define THINGSBOARD_ENABLE_PSRAM 0
-
-
-#if USING_HTTPS
-#include <Arduino_HTTP_Client.h>
-#include <ThingsBoardHttp.h>
-#else
-#include <Arduino_MQTT_Client.h>
-#include <ThingsBoard.h>
-#endif
 
 constexpr char WIFI_SSID[] = "YOUR_WIFI_SSID";
 constexpr char WIFI_PASSWORD[] = "YOUR_WIFI_PASSWORD";
@@ -50,15 +27,6 @@ constexpr char TOKEN[] = "YOUR_DEVICE_ACCESS_TOKEN";
 // Thingsboard we want to establish a connection too
 constexpr char THINGSBOARD_SERVER[] = "demo.thingsboard.io";
 
-#if USING_HTTPS
-// HTTP port used to communicate with the server, 80 is the default unencrypted HTTP port,
-// whereas 443 would be the default encrypted SSL HTTPS port
-#if ENCRYPTED
-constexpr uint16_t THINGSBOARD_PORT = 443U;
-#else
-constexpr uint16_t THINGSBOARD_PORT = 80U;
-#endif
-#else
 // MQTT port used to communicate with the server, 1883 is the default unencrypted MQTT port,
 // whereas 8883 would be the default encrypted SSL MQTT port
 #if ENCRYPTED
@@ -66,12 +34,6 @@ constexpr uint16_t THINGSBOARD_PORT = 8883U;
 #else
 constexpr uint16_t THINGSBOARD_PORT = 1883U;
 #endif
-#endif
-
-// Maximum size packets will ever be sent or received by the underlying MQTT client,
-// if the size is to small messages might not be sent or received messages will be discarded
-constexpr uint16_t MAX_MESSAGE_SEND_SIZE = 128U;
-constexpr uint16_t MAX_MESSAGE_RECEIVE_SIZE = 128U;
 
 // Baud rate for the debugging serial connection
 // If the Serial output is mangled, ensure to change the monitor speed accordingly to this variable
@@ -81,6 +43,7 @@ constexpr uint32_t SERIAL_DEBUG_BAUD = 115200U;
 // See https://comodosslstore.com/resources/what-is-a-root-ca-certificate-and-how-do-i-download-it/
 // on how to get the root certificate of the server we want to communicate with,
 // this is needed to establish a secure connection and changes depending on the website.
+// The one included by default is for the live public ThingsBoard server demo.thingsboard.io
 constexpr char ROOT_CERT[] = R"(-----BEGIN CERTIFICATE-----
 MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
 TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
@@ -100,7 +63,7 @@ jh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymCzLq9gwQbooMDQaHWBfEbwrbw
 qHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC1CLQJ13hef4Y53CI
 rU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNV
 HRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq
-hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
+hkiGw0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
 ubhzEFnTIZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ
 3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KK
 NFtY2PwByVS5uCbMiogziUwthDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5
@@ -126,31 +89,10 @@ WiFiClientSecure espClient;
 #else
 WiFiClient espClient;
 #endif
-// Initialize ThingsBoard instance with the maximum needed buffer size
-#if USING_HTTPS
-// Initalize the Http client instance
-Arduino_HTTP_Client httpClient(espClient, THINGSBOARD_SERVER, THINGSBOARD_PORT);
-ThingsBoardHttp tb(httpClient, TOKEN, THINGSBOARD_SERVER, THINGSBOARD_PORT);
-#else
 // Initalize the Mqtt client instance
 Arduino_MQTT_Client mqttClient(espClient);
-// Initialize used apis
-const std::array<IAPI_Implementation*, 0U> apis = {};
-// Initialize ThingsBoard instance with the maximum needed buffer size
-#if THINGSBOARD_ENABLE_DYNAMIC
-#if THINGSBOARD_ENABLE_STREAM_UTILS
-ThingsBoard tb(mqttClient, MAX_MESSAGE_RECEIVE_SIZE, MAX_MESSAGE_SEND_SIZE, DEFAULT_MAX_STACK_SIZE, DEFAULT_BUFFERING_SIZE, DEFAULT_MAX_RESPONSE_SIZE, apis.cbegin(), apis.cend());
-#else
-ThingsBoard tb(mqttClient, MAX_MESSAGE_RECEIVE_SIZE, MAX_MESSAGE_SEND_SIZE, DEFAULT_MAX_STACK_SIZE, DEFAULT_MAX_RESPONSE_SIZE, apis.cbegin(), apis.cend());
-#endif
-#else
-#if THINGSBOARD_ENABLE_STREAM_UTILS
-ThingsBoard tb(mqttClient, MAX_MESSAGE_RECEIVE_SIZE, MAX_MESSAGE_SEND_SIZE, DEFAULT_MAX_STACK_SIZE, DEFAULT_BUFFERING_SIZE, apis.cbegin(), apis.cend());
-#else
-ThingsBoard tb(mqttClient, MAX_MESSAGE_RECEIVE_SIZE, MAX_MESSAGE_SEND_SIZE, DEFAULT_MAX_STACK_SIZE, apis.cbegin(), apis.cend());
-#endif
-#endif
-#endif
+// Initialize ThingsBoard instance
+ThingsBoard tb(mqttClient);
 
 
 /// @brief Initalizes WiFi connection,
@@ -203,7 +145,6 @@ void loop() {
     return;
   }
 
-#if !USING_HTTPS
   if (!tb.connected()) {
     // Reconnect to the ThingsBoard server,
     // if a connection was disrupted or has not yet been established
@@ -213,10 +154,9 @@ void loop() {
       return;
     }
   }
-#endif
 
-  // Uploads new telemetry to ThingsBoard using HTTP.
-  // See https://thingsboard.io/docs/reference/http-api/#telemetry-upload-api
+  // Uploads new telemetry to ThingsBoard using MQTT.
+  // See https://thingsboard.io/docs/reference/mqtt-api/#telemetry-upload-api
   // for more details
   Serial.println("Sending temperature data...");
   tb.Send_Telemetry_Data(TEMPERATURE_KEY, random(10, 31));
@@ -224,7 +164,5 @@ void loop() {
   Serial.println("Sending humidity data...");
   tb.Send_Telemetry_Data(HUMIDITY_KEY, random(40, 90));
 
-#if !USING_HTTPS
   tb.loop();
-#endif
 }

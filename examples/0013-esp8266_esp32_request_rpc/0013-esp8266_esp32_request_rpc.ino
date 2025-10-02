@@ -37,11 +37,6 @@ constexpr uint16_t THINGSBOARD_PORT = 8883U;
 constexpr uint16_t THINGSBOARD_PORT = 1883U;
 #endif
 
-// Maximum size packets will ever be sent or received by the underlying MQTT client,
-// if the size is to small messages might not be sent or received messages will be discarded
-constexpr uint16_t MAX_MESSAGE_SEND_SIZE = 256U;
-constexpr uint16_t MAX_MESSAGE_RECEIVE_SIZE = 256U;
-
 // Baud rate for the debugging serial connection.
 // If the Serial output is mangled, ensure to change the monitor speed accordingly to this variable
 constexpr uint32_t SERIAL_DEBUG_BAUD = 115200U;
@@ -50,6 +45,7 @@ constexpr uint32_t SERIAL_DEBUG_BAUD = 115200U;
 // See https://comodosslstore.com/resources/what-is-a-root-ca-certificate-and-how-do-i-download-it/
 // on how to get the root certificate of the server we want to communicate with,
 // this is needed to establish a secure connection and changes depending on the website.
+// The one included by default is for the live public ThingsBoard server demo.thingsboard.io
 constexpr char ROOT_CERT[] = R"(-----BEGIN CERTIFICATE-----
 MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
 TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
@@ -99,7 +95,7 @@ Arduino_MQTT_Client mqttClient(espClient);
 // Initialize used apis
 Client_Side_RPC rpc_request;
 // Initialize ThingsBoard instance
-ThingsBoard tb(mqttClient);
+ThingsBoard tb(mqttClient, &rpc_request);
 
 // Statuses for subscribing to rpc
 bool subscribed = false;
@@ -136,7 +132,7 @@ bool reconnect() {
   return true;
 }
 
-/// @brief Attribute request did not receive a response in the expected amount of microseconds 
+/// @brief Attribute request did not receive a response in the expected amount of microseconds
 void requestTimedOut() {
   Serial.printf("RPC request timed out did not receive a response in (%llu) microseconds. Ensure client is connected to the MQTT broker and that the RPC method actually exist on the device Rule chain\n", REQUEST_TIMEOUT_MICROSECONDS);
 }
@@ -153,8 +149,6 @@ void setup() {
   Serial.begin(SERIAL_DEBUG_BAUD);
   delay(1000);
   InitWiFi();
-  tb.Set_Buffer_Size(MAX_MESSAGE_RECEIVE_SIZE, MAX_MESSAGE_SEND_SIZE);
-  tb.Subscribe_API_Implementation(rpc_request);
 }
 
 void loop() {
