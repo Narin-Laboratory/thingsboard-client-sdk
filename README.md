@@ -25,7 +25,7 @@ Please review the complete guide for `ESP32` Pico Kit `GPIO` control and `DHT22`
 
 Example usage for `Espressif` can be found in the `examples/0014-espressif_esp32_send_data` folder, all other code portions can be implemented the same way only initialization of the needed dependencies is slightly different. Meaning internal call to `ThingsBoard` works the same on both `Espressif` and `Arduino`.
 
-This is also the case, because the only always used dependency that is remaining, is [`ArduinoJson`](https://arduinojson.org/), which despite its name does not require any `Arduino` component. _Please Note:_ you must use `v6.x.x` of this library as `v7.x.x` is not yet supported. Please see [this issue](https://github.com/thingsboard/thingsboard-client-sdk/issues/186#issuecomment-1877641466) for details as to why. 
+This is also the case, because the only always used dependency that is remaining, is [`ArduinoJson`](https://arduinojson.org/), which despite its name does not require any `Arduino` component. _Please Note:_ you must use `v7.x.x` of this library as `v6.x.x` is not supported anymore.
 
 ## Installation
 
@@ -75,7 +75,7 @@ To add an external library, we simply have to open `Tools` -> `Manage Libraries`
 Following dependencies are installed automatically or must be installed, too:
 
 **Installed automatically:**
- - [ArduinoJSON](https://github.com/bblanchon/ArduinoJson) — needed for dealing with the `JSON` payload that is sent to and received by `ThingsBoard`. _Please Note:_ you must use `v6.x.x` of this library as `v7.x.x` is not yet supported. Please see [this issue](https://github.com/thingsboard/thingsboard-client-sdk/issues/186#issuecomment-1877641466) for details as to why. 
+ - [ArduinoJSON](https://github.com/bblanchon/ArduinoJson) — needed for dealing with the `JSON` payload that is sent to and received by `ThingsBoard`. _Please Note:_ you must use `v7.x.x` of this library as `v6.x.x` is not supported anymore.
  - [MQTT PubSub Client](https://github.com/thingsboard/pubsubclient) — for interacting with `MQTT`, when using the `Arduino_MQTT_Client` instance as an argument to `ThingsBoard`. Only installed if this library is used over `Arduino IDE` or `PlatformIO` with the Arduino framework.
  - [Arduino Http Client](https://github.com/arduino-libraries/ArduinoHttpClient) — for interacting with `HTTP/S` when using the `Arduino_HTTP_Client` instance as an argument to `ThingsBoardHttp`. Only installed if this library is used over `Arduino IDE` or `PlatformIO` with the Arduino framework.
 
@@ -133,7 +133,7 @@ The buffer size for the serialized JSON is fixed to 64 bytes. The SDK will not s
 [TB] Send buffer size (64) to small for the given payloads size (83), increase with setBufferSize accordingly or install the StreamUtils library
 ```
 
-If that's the case, the buffer size for serialization should be increased. To do so, `setBufferSize()` method can be used or the `send_buffer_size` passed to the constructor can be increased as illustrated below:
+If that's the case, the buffer size for serialization should be increased. To do so, `Set_Buffer_Size()` method can be used or the `send_buffer_size` passed to the constructor can be increased as illustrated below:
 
 ```cpp
 // Initialize underlying client, used to establish a connection
@@ -142,212 +142,21 @@ WiFiClient espClient;
 // Initalize the Mqtt client instance
 Arduino_MQTT_Client mqttClient(espClient);
 
-// The SDK setup with 64 bytes for JSON payload and 8 fields for JSON object
-// ThingsBoard tb(mqttClient);
+// The SDK setup with default 64 bytes for send and receive buffer
+ThingsBoard tb(mqttClient);
 
-// The SDK setup with 128 bytes for JSON payload and 32 fields for JSON object
-ThingsBoardSized<32> tb(mqttClient, 128, 128);
+// The SDK setup with 128 bytes for send and receive buffer
+ThingsBoard tb(mqttClient, 128, 128);
 
 void setup() {
   // Increase internal buffer size after inital creation.
-  tb.setBufferSize(128, 128);
+  tb.Set_Buffer_Size(256, 256);
 }
 ```
 
 Alternatively, it is possible to enable the mentioned `THINGSBOARD_ENABLE_STREAM_UTILS` option, which sends messages that are bigger than the given buffer size with a method that skips the internal buffer, be aware tough this only works for sent messages. The internal buffer size still has to be big enough to receive the biggest possible message received by the client that is sent by the server.
 
 For that the only thing that needs to be done is to install the required `StreamUtils` library, see the [Dependencies](https://github.com/thingsboard/thingsboard-client-sdk?tab=readme-ov-file#dependencies) section.
-
-### Dynamic ThingsBoard usage
-
-All internal methods call attempt to utilize the stack as far as possible and completely minimize heap usage, that is the reason why there are places in the library where template arguments are required. If that memory being on the heap is not an issue, it is possible to remove the need to enter those template arguments altogether. Simply enable the `THINGSBOARD_ENABLE_DYNAMIC` option like shown below.
-
-```cpp
-// If not set the value is 0 per default,
-// set to 1 if the MaxResponse template argument should be automatically deduced instead
-#define THINGSBOARD_ENABLE_DYNAMIC 1
-#include <ThingsBoard.h>
-```
-
-### Too much data fields must be serialized
-
-The `Send_Attributes` and `Send_Telemetry` methods, use the [`StaticJsonDocument`](https://arduinojson.org/v6/api/staticjsondocument/) this requires the `MaxKeyValuePairAmount` template argument to be passed in the method template list. If more key-value pairs are sent than specified, the `"Serial Monitor"` window will get a respective log showing an error:
-
-```
-[TB] Unable to serialize key-value json
-[TB] Attempt too enter to many JSON fields into StaticJsonDocument (5), increase (MaxKeyValuePairAmount) (3) accordingly
-```
-
-To fix the issue we simply have to increase the template argument for the method to the actually required amount.
-
-Alternatively to remove the need for the `MaxKeyValuePairAmount`template argument in the method template list and to ensure the size the method has is always enough to send messages, see the [Dynamic ThingsBoard section](https://github.com/thingsboard/thingsboard-client-sdk?tab=readme-ov-file#dynamic-thingsboard-usage) section. This makes the library use the [`DynamicJsonDocument`](https://arduinojson.org/v6/api/dynamicjsondocument/) instead of the default [`StaticJsonDocument`](https://arduinojson.org/v6/api/staticjsondocument/). Be aware though as this places the json structure onto the heap.
-
-------------------------
-
-Additionally, the [`StaticJsonDocument`](https://arduinojson.org/v6/api/staticjsondocument/) is also used to deserialize the received payload for every kind of response received by the server, besides the `OTA` binary data.
-This means that if the `MaxResponse` template argument is smaller than the amount of received key-value pairs, the `"Serial Monitor"` window will get a respective log showing an error:
-
-```
-[TB] Attempt too enter to many JSON fields into StaticJsonDocument (12), increase (MaxResponse) (8) accordingly
-```
-
-To fix the issue we simply have to increase the template argument for the method to the actually required amount.
-
-```cpp
-// Initialize underlying client, used to establish a connection
-WiFiClient espClient;
-
-// Initalize the Mqtt client instance
-Arduino_MQTT_Client mqttClient(espClient);
-
-// The SDK setup with 64 bytes for JSON payload and 8 fields for JSON object
-// ThingsBoard tb(mqttClient);
-
-// The SDK setup with 128 bytes for JSON payload and 32 fields for JSON object
-ThingsBoardSized<32> tb(mqttClient, 128, 128);
-```
-
-Alternatively to remove the need for the `MaxResponse`template argument in the constructor template list and to ensure the size the buffer should have is always enough to hold received messages, see the [Dynamic ThingsBoard section](https://github.com/thingsboard/thingsboard-client-sdk?tab=readme-ov-file#dynamic-thingsboard-usage) section. This makes the library use the [`DynamicJsonDocument`](https://arduinojson.org/v6/api/dynamicjsondocument/) instead of the default [`StaticJsonDocument`](https://arduinojson.org/v6/api/staticjsondocument/). Be aware though as this places the json structure onto the heap.
-
-### Too many subscriptions
-
-The possible event subscription classes that are passed to internal methods, use arrays which reside on the stack those require the `MaxSubscriptions` template argument to be passed in the constructor template list. The default value is 1, if the method call attempts to subscribe more than that many events in total, the `"Serial Monitor"` window will get a respective log showing an error:
-
-```
-[TB] Too many (shared attribute update) subscriptions, increase (MaxSubscriptions) or unsubscribe"
-```
-
-Important is that both server-side RPC and request attribute values are temporary, meaning once the request has been received it is deleted, and it is therefore possible to subscribe another event again. However, all other subscriptions like client-side RPC or attribute update subscription are permanent meaning once the event has been subscribed we can only unsubscribe all events to make more room.
-
-Additionally, every aforementioned type of request has its own array meaning one type of event subscription (client-side RPC) does not affect the possible amount for another event subscription (attribute update subscription). Therefore, the only thing that needs to be done is to increase the size accordingly.
-
-```cpp
-// Initialize underlying client, used to establish a connection
-WiFiClient espClient;
-
-// Initalize the Mqtt client instance
-Arduino_MQTT_Client mqttClient(espClient);
-
-// Initialize used apis with Shared_Attribute_Update API with 1 maximum Shared_Attribute_Update subscription at once
-// Shared_Attribute_Update shared_attr;
-
-// Initialize used apis with Shared_Attribute_Update API with 2 maximum Shared_Attribute_Update subscription at once
-Shared_Attribute_Update<2U> shared_attr;
-const std::array<IAPI_Implementation*, 1U> apis = {
-    &shared_attr
-};
-
-// The SDK setup with 64 bytes for JSON payload and 8 fields for JSON object
-// ThingsBoard tb(mqttClient, Default_Payload, Default_Payload, apis);
-
-// The SDK setup with 128 bytes for JSON payload and 32 fields for JSON object
-ThingsBoardSized<32> tb(mqttClient, 128, 128, apis);
-```
-
-Alternatively, to remove the need for the `MaxSubscriptions` template argument in the constructor template list, see the [Dynamic ThingsBoard section](https://github.com/thingsboard/thingsboard-client-sdk?tab=readme-ov-file#dynamic-thingsboard-usage) section. This will replace the internal implementation with a growing vector instead, meaning all the subscribed callback data will reside on the heap instead.
-
-### Too many attributes
-
-The possible attribute values that are passed to the `Shared_Attribute_Callback` or `Attribute_Request_Callback`, use arrays which reside on the stack those require the `MaxAttributes` template argument to be passed in the constructor template list. The default value is 1, if we attempt to subscribe or request more attributes than that, the `"Serial Monitor"` window will get a respective log showing a crash:
-
-```
-Assertion `m_size < Capacity' failed.
-```
-
-Therefore, the only thing that needs to be done is to increase the size accordingly.
-
-```cpp
-// Initialize underlying client, used to establish a connection
-WiFiClient espClient;
-
-// Initalize the Mqtt client instance
-Arduino_MQTT_Client mqttClient(espClient);
-
-// Initialize used apis with Shared_Attribute_Update API, 1 maximum Shared_Attribute_Update subscription at once, 1 maximum attribute subscribed per individual subscription
-// Shared_Attribute_Update shared_attr;
-
-// Initialize used apis with Shared_Attribute_Update API, 2 maximum Shared_Attribute_Update subscription at once, 5 maximum attribute subscribed per individual subscription
-Shared_Attribute_Update<2U, 5U> shared_attr;
-const std::array<IAPI_Implementation*, 1U> apis = {
-    &shared_attr
-};
-
-// The SDK setup with 64 bytes for JSON payload and 8 fields for JSON object
-// ThingsBoard tb(mqttClient, Default_Payload, Default_Payload, apis);
-
-// The SDK setup with 128 bytes for JSON payload and 32 fields for JSON object
-ThingsBoardSized<32> tb(mqttClient, 128, 128, apis);
-```
-
-Alternatively, to remove the need for the `MaxAttributes` template argument in the constructor template list, see the [Dynamic ThingsBoard section](https://github.com/thingsboard/thingsboard-client-sdk?tab=readme-ov-file#dynamic-thingsboard-usage) section. This will replace the internal implementation with a growing vector instead, meaning all the subscribed attribute data will reside on the heap instead.
-
-### Server-side RPC response overflowed
-
-The possible response in subscribed `RPC_Callback` methods, use the [`StaticJsonDocument`](https://arduinojson.org/v6/api/staticjsondocument/) this requires the `MaxRPC` template argument to be passed in the constructor template list. The default value is 0, if we attempt to return more key-value pairs in the `JSON` than that, the `"Serial Monitor"` window will get a respective log showing an error:
-
-```
-[TB] Server-side RPC response overflowed, increase MaxRPC (0)
-```
-
-The default size is only 0, because if a callback only uses the [`JsonDocument::set()`](https://arduinojson.org/v6/api/jsondocument/set/) method, it does not require additional memory. This is only the case if we attempt to add key-value pairs to the [`JsonDocument`](https://arduinojson.org/v6/api/jsondocument/). Therefore, the only thing that needs to be done is to increase the size accordingly.
-
-```cpp
-// Initialize underlying client, used to establish a connection
-WiFiClient espClient;
-
-// Initalize the Mqtt client instance
-Arduino_MQTT_Client mqttClient(espClient);
-
-// Initialize used apis with Shared_Attribute_Update API, 1 maximum Shared_Attribute_Update subscription at once, 0 maximum attribute serialized in the response
-// Shared_Attribute_Update shared_attr;
-
-// Initialize used apis with Server_Side_RPC API, 2 maximum Server_Side_RPC subscription at once, 1 maximum attribute serialized in the response
-Server_Side_RPC<2U, 1U> rpc;
-const std::array<IAPI_Implementation*, 1U> apis = {
-    &rpc
-};
-
-// The SDK setup with 64 bytes for JSON payload and 8 fields for JSON object
-// ThingsBoard tb(mqttClient, Default_Payload, Default_Payload, apis);
-
-// The SDK setup with 128 bytes for JSON payload and 32 fields for JSON object
-ThingsBoardSized<32> tb(mqttClient, 128, 128, apis);
-```
-
-Alternatively, to remove the need for the `MaxRPC` template argument in the constructor template list, see the [Dynamic ThingsBoard section](https://github.com/thingsboard/thingsboard-client-sdk?tab=readme-ov-file#dynamic-thingsboard-usage) section. This will instead expect an additional parameter response size in the `RPC_Callback` constructor argument list, which shows the internal size the [`JsonDocument`](https://arduinojson.org/v6/api/jsondocument/) needs to have to contain the response. Use `JSON_OBJECT_SIZE()` and pass the amount of key value pair to calculate the estimated size. See https://arduinojson.org/v6/assistant/ for more information.
-
-### Server-side RPC response overflowed
-
-The possible request in subscribed `RPC_Request_Callback` methods, use the [`StaticJsonDocument`](https://arduinojson.org/v6/api/staticjsondocument/) this requires the `MaxRequestRPC` template argument to be passed in the constructor template list. The default value is 1, if we attempt to send more key-value pairs in the `JSON` than that, the `"Serial Monitor"` window will get a respective log showing an error:
-
-```
-[TB] Client-side RPC request overflowed, increase MaxRequestRPC (2)
-```
-
-```cpp
-// Initialize underlying client, used to establish a connection
-WiFiClient espClient;
-
-// Initalize the Mqtt client instance
-Arduino_MQTT_Client mqttClient(espClient);
-
-// Initialize used apis with Shared_Attribute_Update API, 1 maximum Shared_Attribute_Update subscription at once, 1 maximum attribute serialized in the request
-// Shared_Attribute_Update shared_attr;
-
-// Initialize used apis with Server_Side_RPC API, 2 maximum Server_Side_RPC subscription at once, 2 maximum attribute serialized in the request
-Client_Side_RPC<2U, 2U> request_rpc;
-const std::array<IAPI_Implementation*, 1U> apis = {
-    &request_rpc
-};
-
-// The SDK setup with 64 bytes for JSON payload and 8 fields for JSON object
-// ThingsBoard tb(mqttClient, Default_Payload, Default_Payload, apis);
-
-// The SDK setup with 128 bytes for JSON payload and 32 fields for JSON object
-ThingsBoardSized<32> tb(mqttClient, 128, 128, apis);
-```
-
-Alternatively, to remove the need for the `MaxRequestRPC` template argument in the constructor template list, see the [Dynamic ThingsBoard section](https://github.com/thingsboard/thingsboard-client-sdk?tab=readme-ov-file#dynamic-thingsboard-usage) section. This makes the library use the [`DynamicJsonDocument`](https://arduinojson.org/v6/api/dynamicjsondocument/) instead of the default [`StaticJsonDocument`](https://arduinojson.org/v6/api/staticjsondocument/). Be aware though as this copies the requests onto the heap.
 
 ## Tips and Tricks
 
@@ -421,19 +230,13 @@ WiFiClient espClient;
 Arduino_MQTT_Client mqttClient(espClient);
 
 // Initialize used apis with Custom API
-Custom_IAPI_Implementation custom_api;
-const std::array<IAPI_Implementation*, 1U> apis = {
-    &custom_api
-};
+Custom_API_Implementation custom_api;
 
-// The SDK setup with 64 bytes for JSON payload, 8 fields for JSON object and maximal 7 API endpoints subscribed at once
-// ThingsBoard tb(mqttClient, Default_Payload, Default_Payload, apis);
+// The SDK setup with default buffer sizes
+ThingsBoard tb(mqttClient);
 
-// The SDK setup with 128 bytes for JSON payload and 8 fields for JSON object and maximal 10 API endpoints subscribed at once
-ThingsBoardSized<8, 10> tb(mqttClient, 128, 128, apis);
-
-// Optional alternative way to subscribe the Custom API ater the class instance has already been created
-// tb.Subscribe_IAPI_Implementation(custom_api);
+// Subscribe the custom API implementation
+tb.Subscribe_API_Implementation(custom_api);
 ```
 
 ### Custom Updater Instance
@@ -551,7 +354,7 @@ WiFiClient espClient;
 // Initalize the Http client instance
 Custom_HTTP_Client httpClient(espClient, THINGSBOARD_SERVER, THINGSBOARD_PORT);
 
-// The SDK setup with 8 fields for JSON object
+// The SDK setup with a custom http client
 ThingsBoardHttp tb(httpClient, TOKEN, THINGSBOARD_SERVER, THINGSBOARD_PORT);
 ```
 
@@ -674,16 +477,17 @@ WiFiClient espClient;
 // Initalize the Mqtt client instance
 Custom_MQTT_Client mqttClient(espClient);
 
-// The SDK setup with 64 bytes for JSON payload and 8 fields for JSON object
-// ThingsBoard tb(mqttClient);
+// The SDK setup with default buffer sizes
+ThingsBoard tb(mqttClient);
 
-// The SDK setup with 128 bytes for JSON payload and 32 fields for JSON object
-ThingsBoardSized<32> tb(mqttClient, 128, 128);
+// The SDK setup with 128 bytes for JSON payload
+ThingsBoard tb(mqttClient, 128, 128);
 ```
 
 ### Custom Logger Instance
 
-When using the `ThingsBoard` class instance, the class used to print internal warning messages is not hard coded, but instead the `ThingsBoard` class expects the template argument to a `Logger` implementation. See the [Enabling internal debug messages](https://github.com/thingsboard/thingsboard-client-sdk?tab=readme-ov-file#enabling-internal-debug-messages) section if the logger should also receive debug messages.
+When using the `ThingsBoard` class instance, the class used to print internal warning messages is not hard coded,
+but instead the `ThingsBoard` class expects the template argument to a `Logger` implementation. See the [Enabling internal debug messages](https://github.com/thingsboard/thingsboard-client-sdk?tab=readme-ov-file#enabling-internal-debug-messages) section if the logger should also receive debug messages.
 
 Thanks to it being a template parameter it allows an arbitrary implementation,
 meaning the underlying Logger client can be whatever the user decides, so it can for example be used to print the messages onto a serial card instead of the serial console.
@@ -710,11 +514,11 @@ WiFiClient espClient;
 // Initalize the Mqtt client instance
 Arduino_MQTT_Client mqttClient(espClient);
 
-// The SDK setup with 64 bytes for JSON payload and 8 fields for JSON object
-// ThingsBoard tb(mqttClient);
+// The SDK setup with default buffer sizes and custom logger
+ThingsBoardSized<CustomLogger> tb(mqttClient);
 
-// The SDK setup with 128 bytes for JSON payload and 32 fields for JSON object
-ThingsBoardSized<32, DEFAULT_RESPONSE_AMOUNT, CustomLogger> tb(mqttClient, 128, 128);
+// The SDK setup with 128 bytes for JSON payload and custom logger
+ThingsBoardSized<CustomLogger> tb(mqttClient, 128, 128);
 ```
 
 ## Have a question or proposal?

@@ -63,7 +63,7 @@ jh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymCzLq9gwQbooMDQaHWBfEbwrbw
 qHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC1CLQJ13hef4Y53CI
 rU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNV
 HRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq
-hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
+hkiG-w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
 ubhzEFnTIZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ
 3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KK
 NFtY2PwByVS5uCbMiogziUwthDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5
@@ -84,18 +84,13 @@ constexpr char RPC_SWITCH_METHOD[] = "example_set_switch";
 constexpr char RPC_TEMPERATURE_KEY[] = "temp";
 constexpr char RPC_SWITCH_KEY[] = "switch";
 constexpr char RPC_RESPONSE_KEY[] = "example_response";
-constexpr uint8_t MAX_RPC_SUBSCRIPTIONS = 3U;
-constexpr uint8_t MAX_RPC_RESPONSE = 5U;
 
 // Initalize the Mqtt client instance
 Espressif_MQTT_Client<> mqttClient;
 // Initialize used apis
-Server_Side_RPC<MAX_RPC_SUBSCRIPTIONS, MAX_RPC_RESPONSE> rpc;
-const std::array<IAPI_Implementation*, 1U> apis = {
-    &rpc
-};
-// Initialize ThingsBoard instance with the maximum needed buffer size
-ThingsBoard tb(mqttClient, MAX_MESSAGE_RECEIVE_SIZE, MAX_MESSAGE_SEND_SIZE, DEFAULT_MAX_STACK_SIZE, apis);
+Server_Side_RPC rpc;
+// Initialize ThingsBoard instance
+ThingsBoard tb(mqttClient);
 
 // Status for successfully connecting to the given WiFi
 bool wifi_connected = false;
@@ -147,8 +142,7 @@ void InitWiFi() {
 void processGetJson(const JsonVariantConst &data, JsonDocument &response) {
     ESP_LOGI("RPC Example", "Received the json RPC method");
 
-    // Size of the response document needs to be configured to the size of the innerDoc + 1.
-    StaticJsonDocument<JSON_OBJECT_SIZE(4)> innerDoc;
+    JsonDocument innerDoc;
     innerDoc["string"] = "exampleResponseString";
     innerDoc["int"] = 5;
     innerDoc["float"] = 5.0f;
@@ -199,6 +193,9 @@ extern "C" void app_main(void) {
 
     InitWiFi();
 
+    tb.Set_Buffer_Size(MAX_MESSAGE_RECEIVE_SIZE, MAX_MESSAGE_SEND_SIZE);
+    tb.Subscribe_API_Implementation(rpc);
+
 #if ENCRYPTED
     mqttClient.set_server_certificate(ROOT_CERT);
 #endif // ENCRYPTED
@@ -219,7 +216,7 @@ extern "C" void app_main(void) {
         }
 
         if (!subscribed) {
-            const std::array<RPC_Callback, MAX_RPC_SUBSCRIPTIONS> callbacks = {
+            const std::array<RPC_Callback, 3> callbacks = {
               // Requires additional memory in the JsonDocument for the JsonDocument that will be copied into the response
               RPC_Callback{ RPC_JSON_METHOD,           processGetJson },
               // Requires additional memory in the JsonDocument for 5 key-value pairs that do not copy their value into the JsonDocument itself

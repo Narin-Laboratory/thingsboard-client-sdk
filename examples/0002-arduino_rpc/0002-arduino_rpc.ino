@@ -42,8 +42,6 @@ constexpr const char RPC_TEMPERATURE_METHOD[] = "example_set_temperature";
 constexpr const char RPC_SWITCH_METHOD[] = "example_set_switch";
 constexpr const char RPC_TEMPERATURE_KEY[] = "temp";
 constexpr const char RPC_SWITCH_KEY[] = "switch";
-constexpr uint8_t MAX_RPC_SUBSCRIPTIONS = 3U;
-constexpr uint8_t MAX_RPC_RESPONSE = 5U;
 
 
 // Serial driver for ESP
@@ -53,12 +51,9 @@ WiFiEspClient espClient;
 // Initalize the Mqtt client instance
 Arduino_MQTT_Client mqttClient(espClient);
 // Initialize used apis
-Server_Side_RPC<MAX_RPC_SUBSCRIPTIONS, MAX_RPC_RESPONSE> rpc;
-IAPI_Implementation* apis[1U] = {
-  &rpc
-};
+Server_Side_RPC rpc;
 // Initialize ThingsBoard instance with the maximum needed buffer sizes
-ThingsBoard tb(mqttClient, MAX_MESSAGE_RECEIVE_SIZE, MAX_MESSAGE_SEND_SIZE, DEFAULT_MAX_STACK_SIZE, apis + 0U, apis + 1U);
+ThingsBoard tb(mqttClient);
 
 
 // Statuses for subscribing to rpc
@@ -112,6 +107,8 @@ void setup() {
     while (true);
   }
   InitWiFi();
+  tb.Set_Buffer_Size(MAX_MESSAGE_RECEIVE_SIZE, MAX_MESSAGE_SEND_SIZE);
+  tb.Subscribe_API_Implementation(rpc);
 }
 
 /// @brief Processes function for RPC call "example_json"
@@ -122,8 +119,7 @@ void setup() {
 void processGetJson(const JsonVariantConst &data, JsonDocument &response) {
   Serial.println("Received the json RPC method");
 
-  // Size of the response document needs to be configured to the size of the innerDoc + 1.
-  StaticJsonDocument<JSON_OBJECT_SIZE(4)> innerDoc;
+  JsonDocument innerDoc;
   innerDoc["string"] = "exampleResponseString";
   innerDoc["int"] = 5;
   innerDoc["float"] = 5.0f;
@@ -193,7 +189,7 @@ void loop() {
 
   if (!subscribed) {
     Serial.println("Subscribing for RPC...");
-    const RPC_Callback callbacks[MAX_RPC_SUBSCRIPTIONS] = {
+    const RPC_Callback callbacks[] = {
       // Requires additional memory in the JsonDocument for the JsonDocument that will be copied into the response
       { RPC_JSON_METHOD,           processGetJson },
       // Requires additional memory in the JsonDocument for 5 key-value pairs that do not copy their value into the JsonDocument itself
@@ -204,7 +200,7 @@ void loop() {
     // Perform a subscription. All consequent data processing will happen in
     // processTemperatureChange() and processSwitchChange() functions,
     // as denoted by callbacks array.
-    if (!rpc.RPC_Subscribe(callbacks + 0U, callbacks + MAX_RPC_SUBSCRIPTIONS)) {
+    if (!rpc.RPC_Subscribe(callbacks, callbacks + 3)) {
       Serial.println("Failed to subscribe for RPC");
       return;
     }

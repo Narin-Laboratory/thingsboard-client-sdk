@@ -69,7 +69,7 @@ jh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymCzLq9gwQbooMDQaHWBfEbwrbw
 qHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC1CLQJ13hef4Y53CI
 rU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNV
 HRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq
-hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
+hkiG-w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
 ubhzEFnTIZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ
 3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KK
 NFtY2PwByVS5uCbMiogziUwthDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5
@@ -85,8 +85,6 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 #endif
 
 constexpr char RPC_REQUEST_CALLBACK_METHOD_NAME[] = "getCurrentTime";
-constexpr uint8_t MAX_RPC_SUBSCRIPTIONS = 3U;
-constexpr uint8_t MAX_RPC_REQUEST = 5U;
 constexpr uint64_t REQUEST_TIMEOUT_MICROSECONDS = 5000U * 1000U;
 
 
@@ -99,12 +97,9 @@ WiFiClient espClient;
 // Initalize the Mqtt client instance
 Arduino_MQTT_Client mqttClient(espClient);
 // Initialize used apis
-Client_Side_RPC<MAX_RPC_SUBSCRIPTIONS, MAX_RPC_REQUEST> rpc_request;
-const std::array<IAPI_Implementation*, 1U> apis = {
-    &rpc_request
-};
-// Initialize ThingsBoard instance with the maximum needed buffer size
-ThingsBoard tb(mqttClient, MAX_MESSAGE_RECEIVE_SIZE, MAX_MESSAGE_SEND_SIZE, DEFAULT_MAX_STACK_SIZE, apis);
+Client_Side_RPC rpc_request;
+// Initialize ThingsBoard instance
+ThingsBoard tb(mqttClient);
 
 // Statuses for subscribing to rpc
 bool subscribed = false;
@@ -158,6 +153,8 @@ void setup() {
   Serial.begin(SERIAL_DEBUG_BAUD);
   delay(1000);
   InitWiFi();
+  tb.Set_Buffer_Size(MAX_MESSAGE_RECEIVE_SIZE, MAX_MESSAGE_SEND_SIZE);
+  tb.Subscribe_API_Implementation(rpc_request);
 }
 
 void loop() {
@@ -188,7 +185,7 @@ void loop() {
     }
 
     // RPC Request with multiple simple parameters
-    StaticJsonDocument<JSON_OBJECT_SIZE(3)> doc;
+    JsonDocument doc;
     JsonArray array = doc.to<JsonArray>();
     array.add("example");
     array.add(true);
@@ -201,8 +198,8 @@ void loop() {
     }
 
     // RPC Request with one paramater that is another JsonDocument, can still contain more arguments simply add them with calls to the .add() method on the array object
-    StaticJsonDocument<JSON_OBJECT_SIZE(2)> doc2;
-    StaticJsonDocument<JSON_OBJECT_SIZE(1)> innerDoc;
+    JsonDocument doc2;
+    JsonDocument innerDoc;
     array = doc2.to<JsonArray>();
     innerDoc["example"] = "test";
     array.add(innerDoc);
