@@ -61,11 +61,6 @@ constexpr char THINGSBOARD_SERVER[] = "demo.thingsboard.io";
 // whereas 8883 would be the default encrypted SSL MQTT port
 constexpr uint16_t THINGSBOARD_PORT = 1883U;
 
-// Maximum size packets will ever be sent or received by the underlying MQTT client,
-// if the size is to small messages might not be sent or received messages will be discarded
-constexpr uint16_t MAX_MESSAGE_SEND_SIZE = 512U;
-constexpr uint16_t MAX_MESSAGE_RECEIVE_SIZE = 512U;
-
 // Baud rate for the debugging serial connection
 // If the Serial output is mangled, ensure to change the monitor speed accordingly to this variable
 constexpr uint32_t SERIAL_DEBUG_BAUD = 115200U;
@@ -74,6 +69,7 @@ constexpr uint32_t SERIAL_DEBUG_BAUD = 115200U;
 // See https://comodosslstore.com/resources/what-is-a-root-ca-certificate-and-how-do-i-download-it/
 // on how to get the root certificate of the server we want to communicate with,
 // this is needed to establish a secure connection and changes depending on the website.
+// The one included by default is for the live public ThingsBoard server demo.thingsboard.io
 constexpr char ROOT_CERT[] = R"(-----BEGIN CERTIFICATE-----
 MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
 TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
@@ -93,7 +89,7 @@ jh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymCzLq9gwQbooMDQaHWBfEbwrbw
 qHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC1CLQJ13hef4Y53CI
 rU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNV
 HRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq
-hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
+hkiGw0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
 ubhzEFnTIZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ
 3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KK
 NFtY2PwByVS5uCbMiogziUwthDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5
@@ -118,18 +114,15 @@ WiFiClient espClient;
 // Initalize the Mqtt client instance
 Arduino_MQTT_Client mqttClient(espClient);
 // Initialize used apis
-OTA_Firmware_Update<> ota;
-const std::array<IAPI_Implementation*, 1U> apis = {
-    &ota
-};
-// Initialize ThingsBoard instance with the maximum needed buffer size
-ThingsBoard tb(mqttClient, MAX_MESSAGE_RECEIVE_SIZE, MAX_MESSAGE_SEND_SIZE, DEFAULT_MAX_STACK_SIZE, apis);
+OTA_Firmware_Update ota;
+// Initialize ThingsBoard instance
+ThingsBoard tb(mqttClient, &ota);
 // Initalize the Updater client instance used to flash binary to flash memory
 #ifdef ESP8266
 Arduino_ESP8266_Updater updater;
 #else
 #ifdef ESP32
-Espressif_Updater<> updater;
+Espressif_Updater updater;
 #endif // ESP32
 #endif // ESP8266
 
@@ -171,7 +164,7 @@ bool reconnect() {
 /// @brief Update starting callback method that will be called as soon as the shared attribute firmware keys have been received and processed
 /// and the moment before we subscribe the necessary topics for the OTA firmware update.
 /// Is meant to give a moment were any additional processes or communication with the cloud can be stopped to ensure the update process runs as smooth as possible.
-/// To ensure that calling the ThingsBoardSized::Cleanup_Subscriptions() method can be used which stops any receiving of data over MQTT besides the one for the OTA firmware update,
+/// To ensure that calling the ThingsBoard::Cleanup_Subscriptions() method can be used which stops any receiving of data over MQTT besides the one for the OTA firmware update,
 /// if this method is used ensure to call all subscribe methods again so they can be resubscribed, in the method passed to the finished_callback if the update failed and we do not restart the device
 void update_starting_callback() {
   // Nothing to do

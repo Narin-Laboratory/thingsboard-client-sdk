@@ -37,11 +37,6 @@ constexpr uint16_t THINGSBOARD_PORT = 8883U;
 constexpr uint16_t THINGSBOARD_PORT = 1883U;
 #endif
 
-// Maximum size packets will ever be sent or received by the underlying MQTT client,
-// if the size is to small messages might not be sent or received messages will be discarded
-constexpr uint16_t MAX_MESSAGE_SEND_SIZE = 256U;
-constexpr uint16_t MAX_MESSAGE_RECEIVE_SIZE = 256U;
-
 // Baud rate for the debugging serial connection.
 // If the Serial output is mangled, ensure to change the monitor speed accordingly to this variable
 constexpr uint32_t SERIAL_DEBUG_BAUD = 115200U;
@@ -50,6 +45,7 @@ constexpr uint32_t SERIAL_DEBUG_BAUD = 115200U;
 // See https://comodosslstore.com/resources/what-is-a-root-ca-certificate-and-how-do-i-download-it/
 // on how to get the root certificate of the server we want to communicate with,
 // this is needed to establish a secure connection and changes depending on the website.
+// The one included by default is for the live public ThingsBoard server demo.thingsboard.io
 constexpr char ROOT_CERT[] = R"(-----BEGIN CERTIFICATE-----
 MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
 TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
@@ -102,7 +98,7 @@ Arduino_MQTT_Client mqttClient(espClient);
 // Initialize used apis
 Server_Side_RPC rpc;
 // Initialize ThingsBoard instance
-ThingsBoard tb(mqttClient);
+ThingsBoard tb(mqttClient, &rpc);
 
 // Statuses for subscribing to rpc
 bool subscribed = false;
@@ -140,11 +136,11 @@ bool reconnect() {
 }
 
 /// @brief Processes function for RPC call "example_json"
-/// JsonVariantConst is a JSON variant, that can be queried using operator[]
-/// See https://arduinojson.org/v5/api/jsonvariant/subscript/ for more details
+/// JsonObject is a JSON object, that can be queried using operator[]
+/// See https://arduinojson.org/v7/api/jsonobject/subscript/ for more details
 /// @param data Data containing the rpc data that was called and its current value
 /// @param response Data containgin the response value, any number, string or json, that should be sent to the cloud. Useful for getMethods
-void processGetJson(const JsonVariantConst &data, JsonDocument &response) {
+void processGetJson(const JsonObject &data, JsonDocument &response) {
   Serial.println("Received the json RPC method");
 
   JsonDocument innerDoc;
@@ -156,11 +152,11 @@ void processGetJson(const JsonVariantConst &data, JsonDocument &response) {
 }
 
 /// @brief Processes function for RPC call "example_set_temperature"
-/// JsonVariantConst is a JSON variant, that can be queried using operator[]
-/// See https://arduinojson.org/v5/api/jsonvariant/subscript/ for more details
+/// JsonObject is a JSON object, that can be queried using operator[]
+/// See https://arduinojson.org/v7/api/jsonobject/subscript/ for more details
 /// @param data Data containing the rpc data that was called and its current value
 /// @param response Data containgin the response value, any number, string or json, that should be sent to the cloud. Useful for getMethods
-void processTemperatureChange(const JsonVariantConst &data, JsonDocument &response) {
+void processTemperatureChange(const JsonObject &data, JsonDocument &response) {
   Serial.println("Received the set temperature RPC method");
 
   // Process data
@@ -169,8 +165,6 @@ void processTemperatureChange(const JsonVariantConst &data, JsonDocument &respon
   Serial.print("Example temperature: ");
   Serial.println(example_temperature);
 
-  // Ensure to only pass values do not store by copy, or if they do increase the MaxRPC template parameter accordingly to ensure that the value can be deserialized.RPC_Callback.
-  // See https://arduinojson.org/v6/api/jsondocument/add/ for more information on which variables cause a copy to be created
   response["string"] = "exampleResponseString";
   response["int"] = 5;
   response["float"] = 5.0f;
@@ -179,11 +173,11 @@ void processTemperatureChange(const JsonVariantConst &data, JsonDocument &respon
 }
 
 /// @brief Processes function for RPC call "example_set_switch"
-/// JsonVariantConst is a JSON variant, that can be queried using operator[]
-/// See https://arduinojson.org/v5/api/jsonvariant/subscript/ for more details
+/// JsonObject is a JSON object, that can be queried using operator[]
+/// See https://arduinojson.org/v7/api/jsonobject/subscript/ for more details
 /// @param data Data containing the rpc data that was called and its current value
 /// @param response Data containgin the response value, any number, string or json, that should be sent to the cloud. Useful for getMethods
-void processSwitchChange(const JsonVariantConst &data, JsonDocument &response) {
+void processSwitchChange(const JsonObject &data, JsonDocument &response) {
   Serial.println("Received the set switch method");
 
   // Process data
@@ -200,8 +194,6 @@ void setup() {
   Serial.begin(SERIAL_DEBUG_BAUD);
   delay(1000);
   InitWiFi();
-  tb.Set_Buffer_Size(MAX_MESSAGE_RECEIVE_SIZE, MAX_MESSAGE_SEND_SIZE);
-  tb.Subscribe_API_Implementation(rpc);
 }
 
 void loop() {
@@ -224,11 +216,8 @@ void loop() {
   if (!subscribed) {
     Serial.println("Subscribing for RPC...");
     const std::array<RPC_Callback, 3U> callbacks = {
-      // Requires additional memory in the JsonDocument for the JsonDocument that will be copied into the response
       RPC_Callback{ RPC_JSON_METHOD,           processGetJson },
-      // Requires additional memory in the JsonDocument for 5 key-value pairs that do not copy their value into the JsonDocument itself
       RPC_Callback{ RPC_TEMPERATURE_METHOD,    processTemperatureChange },
-       // Internal size can be 0, because if we use the JsonDocument as a JsonVariant and then set the value we do not require additional memory
       RPC_Callback{ RPC_SWITCH_METHOD,         processSwitchChange }
     };
     // Perform a subscription. All consequent data processing will happen in

@@ -37,23 +37,15 @@ constexpr uint16_t THINGSBOARD_PORT = 8883U;
 constexpr uint16_t THINGSBOARD_PORT = 1883U;
 #endif
 
-// Maximum size packets will ever be sent or received by the underlying MQTT client,
-// if the size is to small messages might not be sent or received messages will be discarded
-constexpr uint16_t MAX_MESSAGE_SEND_SIZE = 256U;
-constexpr uint16_t MAX_MESSAGE_RECEIVE_SIZE = 256U;
-
 // Baud rate for the debugging serial connection
 // If the Serial output is mangled, ensure to change the monitor speed accordingly to this variable
 constexpr uint32_t SERIAL_DEBUG_BAUD = 115200U;
-
-// Maximum amount of attributs we can request or subscribe, has to be set both in the ThingsBoard template list and Attribute_Request_Callback template list
-// and should be the same as the amount of variables in the passed array. If it is less not all variables will be requested or subscribed
-constexpr size_t MAX_ATTRIBUTES = 6U;
 
 #if ENCRYPTED
 // See https://comodosslstore.com/resources/what-is-a-root-ca-certificate-and-how-do-i-download-it/
 // on how to get the root certificate of the server we want to communicate with,
 // this is needed to establish a secure connection and changes depending on the website.
+// The one included by default is for the live public ThingsBoard server demo.thingsboard.io
 constexpr char ROOT_CERT[] = R"(-----BEGIN CERTIFICATE-----
 MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
 TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
@@ -73,9 +65,9 @@ jh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymCzLq9gwQbooMDQaHWBfEbwrbw
 qHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC1CLQJ13hef4Y53CI
 rU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNV
 HRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq
-hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
+hkiGw0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
 ubhzEFnTIZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ
-3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KK
+3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X+1+mvoiBOv/2X/qkSsisRcOj/KK
 NFtY2PwByVS5uCbMiogziUwthDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5
 ORAzI4JMPJ+GslWYHb4phowim57iaztXOoJwTdwJx4nLCgdNbOhdjsnvzqvHu7Ur
 TkXWStAmzOVyyghqpZXjFaH3pO3JLF+l+/+sKAIuvtd7u+Nxe5AW0wdeRlN8NwdC
@@ -107,12 +99,9 @@ WiFiClient espClient;
 // Initalize the Mqtt client instance
 Arduino_MQTT_Client mqttClient(espClient);
 // Initialize used apis
-Attribute_Request<2U, MAX_ATTRIBUTES> attr_request;
-const std::array<IAPI_Implementation*, 1U> apis = {
-    &attr_request
-};
-// Initialize ThingsBoard instance with the maximum needed buffer size
-ThingsBoard tb(mqttClient, MAX_MESSAGE_RECEIVE_SIZE, MAX_MESSAGE_SEND_SIZE, DEFAULT_MAX_STACK_SIZE, apis);
+Attribute_Request attr_request;
+// Initialize ThingsBoard instance
+ThingsBoard tb(mqttClient, &attr_request);
 
 // Statuses for requesting of attributes
 bool requestedClient = false;
@@ -150,7 +139,7 @@ bool reconnect() {
   return true;
 }
 
-/// @brief Attribute request did not receive a response in the expected amount of microseconds 
+/// @brief Attribute request did not receive a response in the expected amount of microseconds
 void requestTimedOut() {
   Serial.printf("Attribute request timed out did not receive a response in (%llu) microseconds. Ensure client is connected to the MQTT broker and that the keys actually exist on the target device\n", REQUEST_TIMEOUT_MICROSECONDS);
 }
@@ -158,7 +147,7 @@ void requestTimedOut() {
 /// @brief Update callback that will be called as soon as the requested shared attributes, have been received.
 /// The callback will then not be called anymore unless it is reused for another request
 /// @param data Data containing the shared attributes that were requested and their current value
-void processSharedAttributeRequest(const JsonObjectConst &data) {
+void processSharedAttributeRequest(const JsonObject &data) {
   for (auto it = data.begin(); it != data.end(); ++it) {
     Serial.println(it->key().c_str());
     // Shared attributes have to be parsed by their type.
@@ -174,7 +163,7 @@ void processSharedAttributeRequest(const JsonObjectConst &data) {
 /// @brief Update callback that will be called as soon as the requested client-side attributes, have been received.
 /// The callback will then not be called anymore unless it is reused for another request
 /// @param data Data containing the client-side attributes that were requested and their current value
-void processClientAttributeRequest(const JsonObjectConst &data) {
+void processClientAttributeRequest(const JsonObject &data) {
   for (auto it = data.begin(); it != data.end(); ++it) {
     Serial.println(it->key().c_str());
     // Shared attributes have to be parsed by their type.
@@ -214,8 +203,8 @@ void loop() {
   if (!requestedShared) {
     Serial.println("Requesting shared attributes...");
     // Shared attributes we want to request from the server
-    constexpr std::array<const char*, MAX_ATTRIBUTES> REQUESTED_SHARED_ATTRIBUTES = {FW_CHKS_KEY, FW_CHKS_ALGO_KEY, FW_SIZE_KEY, FW_TAG_KEY, FW_TITLE_KEY, FW_VER_KEY};
-    const Attribute_Request_Callback<MAX_ATTRIBUTES> sharedCallback(&processSharedAttributeRequest, REQUEST_TIMEOUT_MICROSECONDS, &requestTimedOut, REQUESTED_SHARED_ATTRIBUTES);
+    constexpr std::array<const char*, 6U> REQUESTED_SHARED_ATTRIBUTES = {FW_CHKS_KEY, FW_CHKS_ALGO_KEY, FW_SIZE_KEY, FW_TAG_KEY, FW_TITLE_KEY, FW_VER_KEY};
+    const Attribute_Request_Callback sharedCallback(&processSharedAttributeRequest, REQUEST_TIMEOUT_MICROSECONDS, &requestTimedOut, REQUESTED_SHARED_ATTRIBUTES.cbegin(), REQUESTED_SHARED_ATTRIBUTES.cend());
     requestedShared = attr_request.Shared_Attributes_Request(sharedCallback);
     if (!requestedShared) {
       Serial.println("Failed to request shared attributes");
@@ -226,7 +215,7 @@ void loop() {
     Serial.println("Requesting client-side attributes...");
     // Client-side attributes we want to request from the server
     const std::vector<const char*> REQUESTED_CLIENT_ATTRIBUTES = {TEST_KEY};
-    const Attribute_Request_Callback<MAX_ATTRIBUTES> clientCallback(&processClientAttributeRequest, REQUEST_TIMEOUT_MICROSECONDS, &requestTimedOut, REQUESTED_CLIENT_ATTRIBUTES);
+    const Attribute_Request_Callback clientCallback(&processClientAttributeRequest, REQUEST_TIMEOUT_MICROSECONDS, &requestTimedOut, REQUESTED_CLIENT_ATTRIBUTES.cbegin(), REQUESTED_CLIENT_ATTRIBUTES.cend());
     requestedClient = attr_request.Client_Attributes_Request(clientCallback);
     if (!requestedClient) {
       Serial.println("Failed to request client-side attributes");

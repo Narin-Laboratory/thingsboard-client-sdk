@@ -116,15 +116,6 @@
 #    endif
 #  endif
 
-// Enables the ThingsBoard class to be fully dynamic instead of requiring template arguments to statically allocate memory.
-// If enabled the program might be slightly slower and all the memory will be placed onto the heap instead of the stack.
-// See https://arduinojson.org/v6/api/dynamicjsondocument/ for the main difference in the underlying code.
-// Can also optionally be configured via the ESP-IDF menuconfig, if that is the done the value is set to the value entered in the menuconfig,
-// if the value is manually overriden tough with a #define before including ThingsBoard then the hardcoded value takes precendence.
-#  ifndef THINGSBOARD_ENABLE_DYNAMIC
-#    define THINGSBOARD_ENABLE_DYNAMIC CONFIG_THINGSBOARD_ENABLE_DYNAMIC
-#  endif
-
 // Enables the ThingsBoard class to print all received and sent messages and their topic, from and to the server,
 // additionally some more debug messages will be printed. Requires more flash memory, and more calls to the logger implementation requiring more performance.
 // Recommended to disable when building for release, should only be enabled to debug where a issue might stem from.
@@ -151,22 +142,6 @@
 #      endif
 #    else
 #      define THINGSBOARD_ENABLE_STREAM_UTILS 0
-#    endif
-#  endif
-
-// Enables the ThingsBoard class to save the allocated memory of the DynamicJsonDocument into psram instead of onto the sram.
-// Enabled by default if THINGSBOARD_ENABLE_DYNAMIC has been set and the esp_heap_caps header exists, because it requries DynamicJsonDocument to work.
-// If enabled the program might be slightly slower, but all the memory will be placed onto psram instead of sram, meaning the sram can be allocated for other things.
-// See https://arduinojson.org/v6/how-to/use-external-ram-on-esp32/ and https://arduinojson.org/v6/api/basicjsondocument/ for the main difference in the underlying code.
-#  ifndef THINGSBOARD_ENABLE_PSRAM
-#    ifdef __has_include
-#      if THINGSBOARD_ENABLE_DYNAMIC && __has_include(<esp_heap_caps.h>)
-#        define THINGSBOARD_ENABLE_PSRAM 1
-#      else
-#        define THINGSBOARD_ENABLE_PSRAM 0
-#      endif
-#    else
-#      define THINGSBOARD_ENABLE_PSRAM 0
 #    endif
 #  endif
 

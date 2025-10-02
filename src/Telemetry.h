@@ -74,43 +74,10 @@ class Telemetry {
     /// @return Whether there is any data in this record or not
     bool IsEmpty() const;
 
-    /// @brief Serializes a key-value pair or only a value, depending on the constructor used
-    /// @tparam TSource Source class that the given key-value pair or only a value, should be copied into
-    /// @param source Data source that should contain the key-value pair or a value
+    /// @brief Serializes a key-value pair
+    /// @param source Data source that should contain the key-value pair
     /// @return Whether serializing was successful or not
-    template <typename TSource>
-    bool SerializeKeyValue(TSource & source) const {
-        switch (m_type) {
-            case DataType::TYPE_BOOL:
-                if (m_key) {
-                    source[m_key] = m_value.boolean;
-                    return source.containsKey(m_key);
-                }
-                return source.set(m_value.boolean);
-            case DataType::TYPE_INT:
-                if (m_key) {
-                    source[m_key] = m_value.integer;
-                    return source.containsKey(m_key);
-                }
-                return source.set(m_value.integer);
-            case DataType::TYPE_REAL:
-                if (m_key) {
-                    source[m_key] = m_value.real;
-                    return source.containsKey(m_key);
-                }
-                return source.set(m_value.real);
-            case DataType::TYPE_STR:
-                if (m_key) {
-                    source[m_key] = m_value.str;
-                    return source.containsKey(m_key);
-                }
-                return source.set(m_value.str);
-            default:
-                // Nothing to do
-                break;
-        }
-        return false;
-    }
+    bool SerializeKeyValue(JsonDocument & source) const;
 
   private:
     /// @brief Data container, which contains one of the possibly passed values
